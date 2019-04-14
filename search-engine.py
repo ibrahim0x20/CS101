@@ -1,29 +1,25 @@
-#Finishing the page ranking algorithm.
 
-def compute_ranks(graph):
-    d = 0.8 # damping factor
-    numloops = 10
+#In Unit 6, we implemented a page ranking algorithm, but didn't finish the final
+#step of using it to improve our search results. For this question, you will use
+#the page rankings to produce the best output for a given query.
+
+#Define a procedure, lucky_search, that takes as input an index, a ranks
+#dictionary (the result of compute_ranks), and a keyword, and returns the one
+#URL most likely to be the best site for that keyword. If the keyword does not
+#appear in the index, lucky_search should return None.
+
+def lucky_search(index, ranks, keyword):
+    pages = lookup(index,keyword)
+    if not pages:
+        return None
+        
+    best_page = pages[0]
     
-    ranks = {}
-    npages = len(graph)
-    for page in graph:
-        ranks[page] = 1.0 / npages
+    for candidate in pages:
+        if ranks[candidate] > ranks[best_page]:
+            best_page = candidate
     
-    for i in range(0, numloops):
-        newranks = {}
-        for page in graph:
-            newrank = (1 - d) / npages
-            
-            #Insert Code Here
-            for node in graph:
-                if page in graph[node]:
-                    newrank = newrank + d*ranks[node]/len(graph[node])
-            
-            newranks[page] = newrank
-        ranks = newranks
-    return ranks
-
-
+    return best_page       
 
 cache = {
    'http://udacity.com/cs101x/urank/index.html': """<html>
@@ -48,7 +44,7 @@ and <a href="http://udacity.com/cs101x/urank/zinc.html">Zinc Chef</a>.
 
 
 
-""", 
+""",
    'http://udacity.com/cs101x/urank/zinc.html': """<html>
 <body>
 <h1>The Zinc Chef</h1>
@@ -68,7 +64,7 @@ For great hummus, try
 
 
 
-""", 
+""",
    'http://udacity.com/cs101x/urank/nickel.html': """<html>
 <body>
 <h1>The Nickel Chef</h1>
@@ -86,7 +82,7 @@ best Hummus recipe!
 
 
 
-""", 
+""",
    'http://udacity.com/cs101x/urank/kathleen.html': """<html>
 <body>
 <h1>
@@ -105,7 +101,7 @@ Kathleen's Hummus Recipe
 </body>
 </html>
 
-""", 
+""",
    'http://udacity.com/cs101x/urank/arsenic.html': """<html>
 <body>
 <h1>
@@ -121,7 +117,7 @@ The Arsenic Chef's World Famous Hummus Recipe
 </body>
 </html>
 
-""", 
+""",
    'http://udacity.com/cs101x/urank/hummus.html': """<html>
 <body>
 <h1>
@@ -140,36 +136,15 @@ Hummus Recipe
 
 
 
-""", 
+""",
 }
-
-def crawl_web(seed): # returns index, graph of inlinks
-    tocrawl = [seed]
-    crawled = []
-    graph = {}  # <url>, [list of pages it links to]
-    index = {} 
-    while tocrawl: 
-        page = tocrawl.pop()
-        if page not in crawled:
-            content = get_page(page)
-            add_page_to_index(index, page, content)
-            outlinks = get_all_links(content)
-            
-            
-            graph[page] = outlinks
-            
-            
-            union(tocrawl, outlinks)
-            crawled.append(page)
-    return index, graph
-
 
 def get_page(url):
     if url in cache:
         return cache[url]
-    else:
-        return None
-    
+    return ""
+
+
 def get_next_target(page):
     start_link = page.find('<a href=')
     if start_link == -1: 
@@ -206,23 +181,60 @@ def add_to_index(index, keyword, url):
         index[keyword].append(url)
     else:
         index[keyword] = [url]
-
+    
 def lookup(index, keyword):
     if keyword in index:
         return index[keyword]
     else:
         return None
 
+def crawl_web(seed): # returns index, graph of inlinks
+    tocrawl = [seed]
+    crawled = []
+    graph = {}  # <url>, [list of pages it links to]
+    index = {} 
+    while tocrawl: 
+        page = tocrawl.pop()
+        if page not in crawled:
+            content = get_page(page)
+            add_page_to_index(index, page, content)
+            outlinks = get_all_links(content)
+            graph[page] = outlinks
+            union(tocrawl, outlinks)
+            crawled.append(page)
+    return index, graph
+
+def compute_ranks(graph):
+    d = 0.8 # damping factor
+    numloops = 10
+    
+    ranks = {}
+    npages = len(graph)
+    for page in graph:
+        ranks[page] = 1.0 / npages
+    
+    for i in range(0, numloops):
+        newranks = {}
+        for page in graph:
+            newrank = (1 - d) / npages
+            for node in graph:
+                if page in graph[node]:
+                    newrank = newrank + d * (ranks[node] / len(graph[node]))
+            newranks[page] = newrank
+        ranks = newranks
+    return ranks
+
+
+#Here's an example of how your procedure should work on the test site: 
+
 index, graph = crawl_web('http://udacity.com/cs101x/urank/index.html')
 ranks = compute_ranks(graph)
-print ranks
 
-#>>> {'http://udacity.com/cs101x/urank/kathleen.html': 0.11661866666666663,
-#'http://udacity.com/cs101x/urank/zinc.html': 0.038666666666666655,
-#'http://udacity.com/cs101x/urank/hummus.html': 0.038666666666666655,
-#'http://udacity.com/cs101x/urank/arsenic.html': 0.054133333333333325,
-#'http://udacity.com/cs101x/urank/index.html': 0.033333333333333326,
-#'http://udacity.com/cs101x/urank/nickel.html': 0.09743999999999997}
+print lucky_search(index, ranks, 'Hummus')
+#>>> http://udacity.com/cs101x/urank/kathleen.html
 
+#print lucky_search(index, ranks, 'the')
+#>>> http://udacity.com/cs101x/urank/nickel.html
 
-
+#print lucky_search(index, ranks, 'babaganoush')
+#>>> None
